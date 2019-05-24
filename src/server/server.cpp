@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <thread>
 
 #define SERVER_PORT 8888
 #define RQS_PACKAGE 1024
@@ -21,6 +22,7 @@ char *readFile(const char *path) {
 	
 	if (not file) {
 		ERR("failed to open file!");
+		return NULL;
 	} else {
 		LOG("file opened.");
 	}
@@ -49,17 +51,17 @@ void writeFile(const char *str, const char *path) {
 	fclose(file);
 }
 
-void handleGet(string requestHeader) {
+void handleGet(std :: string requestHeader) {
 	
 }
 
-void handlePost(string requestHeader, int client, int threadNumber) {
+void handlePost(std :: string requestHeader, int client, int threadNumber) {
 	int requestPos = 0;
 	if ((requestPos = requestHeader.find("?")) < 0) {
 		ERR("url format error!");
 	}
 	
-	string request = "";
+	std :: string request = "";
 	
 	while (requestHeader[requestPos] != ' ') {
 		request += requestHeader[requestPos];
@@ -78,7 +80,7 @@ void handlePost(string requestHeader, int client, int threadNumber) {
 	LOG("POST");
 	LOG(request.c_str());
 	typePos += 14; // length of "Content-Type: "
-	string type = "";
+	std :: string type = "";
 	
 	while (requestHeader[typePos] != '\r') {
 		type += requestHeader[typePos];
@@ -108,7 +110,7 @@ void handlePost(string requestHeader, int client, int threadNumber) {
 			}
 		}
 		
-		LOG(to_string(dataSize) + "(SIZE)");
+		LOG(std :: to_string(dataSize) + "(SIZE)");
 		
 		char *content = new char[dataSize + 1];
 		
@@ -122,18 +124,18 @@ void handlePost(string requestHeader, int client, int threadNumber) {
 			request.compare("?texToPdf") == 0) {
 			LOG("generating tmp file.");
 			
-			string nowPath = getcwd(NULL, 0);
+			std :: string nowPath = getcwd(NULL, 0);
 			
-			string baseName = "tmptex";
-			baseName += to_string(threadNumber);
+			std :: string baseName = "tmptex";
+			baseName += std :: to_string(threadNumber);
 			
-			string threadPath = "";
+			std :: string threadPath = "";
 			threadPath += nowPath + "/thread";
-			threadPath += to_string(threadNumber);
+			threadPath += std :: to_string(threadNumber);
 			
-			string fileName = baseName + ".tex";
+			std :: string fileName = baseName + ".tex";
 			
-			string tmpFile = threadPath + "/" + fileName;
+			std :: string tmpFile = threadPath + "/" + fileName;
 			LOG(tmpFile);
 			writeFile(content, tmpFile.c_str());
 			
@@ -141,9 +143,9 @@ void handlePost(string requestHeader, int client, int threadNumber) {
 			
 			LOG(getcwd(NULL, 0));
 			
-			string com = threadPath + "/ht-latex ";
+			std :: string com = threadPath + "/ht-latex ";
 			com += "tmptex";
-			com += to_string(threadNumber) + ".tex";
+			com += std :: to_string(threadNumber) + ".tex";
 			com += " .";
 			LOG(com);
 			system(com.c_str());
@@ -171,7 +173,7 @@ void handlePost(string requestHeader, int client, int threadNumber) {
 			system(com.c_str());
 			*/
 			
-			string responseFile = "";
+			std :: string responseFile = "";
 			
 			if (request.compare("?texToHtml") == 0) {
 				responseFile = baseName + ".html";
@@ -182,6 +184,9 @@ void handlePost(string requestHeader, int client, int threadNumber) {
 			LOG(responseFile);
 			
 			char *fileContent = readFile(responseFile.c_str());
+			if (fileContent == NULL) {
+				fileContent = "Something goes wrong with rendering latex.";
+			}
 			int fileLength = strlen(fileContent);
 			
 			if (send(client, fileContent, fileLength, 0) < 0) {
@@ -190,6 +195,12 @@ void handlePost(string requestHeader, int client, int threadNumber) {
 		        LOG("response sent.");
 		    }
 		    
+		    com = "rm ";
+		    com += "tmptex";
+			com += std :: to_string(threadNumber) + ".*";
+			LOG(com);
+			system(com.c_str());
+
 		    chdir("..");
 		    LOG(getcwd(NULL, 0));
 		}
@@ -242,7 +253,7 @@ int main() {
             } else {
                 LOG("request read.");
                 printf("%s", rcvBuff);
-				string requestHeader = rcvBuff;
+				std :: string requestHeader = rcvBuff;
 				
 				if (requestHeader.substr(0, 4).compare("POST") == 0) {
 					handlePost(requestHeader, client, 3);
