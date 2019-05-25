@@ -12,11 +12,11 @@
 #ifdef DEBUG
 #define OUTSTREAM stdout
 #else
-FILE* file = fopen("log.out", "a");
 #define OUTSTREAM file
 #endif  /* DEBUG */
 
 inline void LOG(std :: string msg) {
+    return;
     time_t timeP;
     time(&timeP);
     char timeF[32];
@@ -26,9 +26,15 @@ inline void LOG(std :: string msg) {
             nowTime.tm_mday, nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
     char output[128];
     sprintf(output, "\nLOG %s\n%s\n", timeF, msg.c_str());
-    fprintf(OUTSTREAM, "\nLOG %s\n%s\n", timeF, msg.c_str());
 #ifdef DEBUG
     qDebug(output);
+#else
+    FILE* file = fopen("log.out", "a");
+    if (file == NULL) {
+        file = fopen("log.out", "w");
+    }
+    fputs(output, OUTSTREAM);
+    fclose(file);
 #endif
 }
 
@@ -42,9 +48,15 @@ inline void ERR(std :: string msg) {
             nowTime.tm_mday, nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
     char output[128];
     sprintf(output, "\nLOG %s\n%s\n", timeF, msg.c_str());
-    fprintf(OUTSTREAM, "\nERROR %s\n%s\n", timeF, msg.c_str());
 #ifdef DEBUG
     qDebug(output);
+#else
+    FILE* file = fopen("log.out", "a");
+    if (file == NULL) {
+        file = fopen("log.out", "w");
+    }
+    fputs(output, OUTSTREAM);
+    fclose(file);
 #endif
 }
 

@@ -23,7 +23,7 @@ void PostThread::updateUISlot(QString latexHTML) {
 void PostThread::run() {
     while (true) {
         DWORD nowTime = GetTickCount();
-        if (nowTime - GV::lastUpdate > 1500) { // terminate after 4000ms
+        if (nowTime - GV::lastUpdate > 1500) { // terminate after 1500ms
             GV::lastUpdate = nowTime;
 
             mutex.lock();
@@ -33,6 +33,8 @@ void PostThread::run() {
                 mutex.unlock();
                 std :: string latexResult = postFile(ip, 8888, type, transfer.data() , false);
                 emit updateLatex(QString::fromStdString(latexResult));
+            } else {
+                mutex.unlock();
             }
         }
     }

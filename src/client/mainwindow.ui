@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>1024</width>
+    <height>768</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>400</width>
-    <height>0</height>
+    <width>1024</width>
+    <height>768</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -34,18 +34,48 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>400</width>
+     <width>1024</width>
      <height>17</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHello_World">
     <property name="title">
-     <string>Hello World</string>
+     <string>文件</string>
     </property>
    </widget>
+   <widget class="QMenu" name="menu">
+    <property name="title">
+     <string>编辑</string>
+    </property>
+    <addaction name="action"/>
+    <addaction name="action_2"/>
+    <addaction name="action_3"/>
+    <addaction name="action_4"/>
+   </widget>
    <addaction name="menuHello_World"/>
+   <addaction name="menu"/>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
+  <action name="action">
+   <property name="text">
+    <string>粗体</string>
+   </property>
+  </action>
+  <action name="action_2">
+   <property name="text">
+    <string>斜体</string>
+   </property>
+  </action>
+  <action name="action_3">
+   <property name="text">
+    <string>链接</string>
+   </property>
+  </action>
+  <action name="action_4">
+   <property name="text">
+    <string>引用</string>
+   </property>
+  </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources/>

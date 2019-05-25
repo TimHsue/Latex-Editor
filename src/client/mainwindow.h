@@ -13,6 +13,7 @@ class PostThread;
 class GV {
 public:
     static DWORD lastUpdate;
+    static DWORD threadTime;
 };
 
 class MainWindow : public QMainWindow {

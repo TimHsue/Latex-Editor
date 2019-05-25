@@ -48,7 +48,7 @@ std :: string postFile(char *addr, int serverPort, char *target,
 
     if ((clientSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         ERR("failed to start socket!");
-        return NULL;
+        return "error";
     } else {
         LOG("socket started.");
     }
@@ -61,7 +61,7 @@ std :: string postFile(char *addr, int serverPort, char *target,
     if (::connect(clientSocket, (struct sockaddr *)&serverAddr,
                 sizeof(serverAddr)) < 0) {
         ERR("failed to connect to socket server!");
-        return NULL;
+        return "error";
     } else {
         LOG("socket connected.");
     }
@@ -108,7 +108,7 @@ std :: string postFile(char *addr, int serverPort, char *target,
     int reciveLength = 0;
     if ((reciveLength = send(clientSocket, header.c_str(), header.length(), 0)) < 0) {
         ERR("failed to send request header!");
-        return NULL;
+        return "error";
     } else {
         LOG("request sent.");
     }
@@ -117,26 +117,22 @@ std :: string postFile(char *addr, int serverPort, char *target,
 
     if ((reciveLength = send(clientSocket, fileContent, fileLength, 0)) < 0) {
         ERR("failed to send request body!");
-        return NULL;
+        return "error";
     } else {
         LOG("request sent.");
     }
 
     std :: string res = "";
     do {
-        FILE* file = fopen("tmp.html", "w");
         if ((reciveLength = recv(clientSocket, rcvBuff, RSP_PACKAGE, 0)) <
             0) {
             ERR("failed to receive response!");
-            return NULL;
+            return "error";
         } else if (reciveLength > 0) {
-            printf("%s", rcvBuff);
             res += rcvBuff;
-            fputs(rcvBuff, file);
             memset(rcvBuff, 0, sizeof(rcvBuff));
         }
     } while (reciveLength > 0);
-    printf("\n");
 
     LOG("all responses read.");
 
