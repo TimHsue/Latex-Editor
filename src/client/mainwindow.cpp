@@ -21,7 +21,7 @@ MainWindow::~MainWindow() {
 void MainWindow::updateUI(QString latexHTML, QString latexCSS) {
     ui->latexPreviwer->setHtml(latexHTML);
     /*
-    QByteArray tmp = latexCSS.toLatin1();
+    QByteArray tmp = latexHTML.toLatin1();
     char *latexCSSChar = tmp.data();
     printf("%d\n", latexCSS.length());
     QFile file("F://SystemDocument//UItest//tmp.txt");

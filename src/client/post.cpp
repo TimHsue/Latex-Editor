@@ -6,8 +6,8 @@
 #include <iostream>
 #include <log.cpp>
 
-#define RQS_PACKAGE 1024
-#define RSP_PACKAGE 2048
+#define RQS_PACKAGE 256
+#define RSP_PACKAGE 256
 #define BOUNDARY "TPafZ#C3T"
 #define ISNUM(X) (X <= '9' && X >= '0')
 
@@ -57,7 +57,7 @@ char *readFile(const char *path) {
 Response handleResponse(std :: string rspHeader, SOCKET client) {
     LOG(rspHeader);
     char *cssChar, *htmlChar;
-    std :: string html;
+    std :: string html, css;
 
     int numberPos = 0, dataNumber = 0;
     numberPos = rspHeader.find("dataNumber=") + 11;
@@ -76,7 +76,7 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
         fileSize = fileSize * 10 + rspHeader[fileSizePos] - '0';
         fileSizePos++;
 
-        if (fileSizePos > rspHeader.length()) {
+        if (fileSizePos >= rspHeader.length()) {
             break;
         }
     }
@@ -88,7 +88,7 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
             cssSize = cssSize * 10 + rspHeader[cssSizePos] - '0';
             cssSizePos++;
 
-            if (cssSizePos > rspHeader.length()) {
+            if (cssSizePos >= rspHeader.length()) {
                 break;
             }
         }
@@ -99,32 +99,62 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
     LOG(std :: to_string(fileSize));
     LOG(std :: to_string(cssSize));
 
-    htmlChar = new char[fileSize + 1];
-    if (recv(client, htmlChar, fileSize, 0) < 0) {
-        ERR("failed to receive html!");
-        return Response("error");
-    } else {
-        htmlChar[fileSize] = 0;
-    }
-    html = htmlChar;
 
-    if (dataNumber == 2) {
-        cssChar = new char[cssSize + 1];
-        if (recv(client, cssChar, cssSize, 0) < 0) {
-            ERR("failed to receive css!");
-            return Response("error");
-        } else {
-            cssChar[cssSize] = 0;
+    char rcvBuff[RSP_PACKAGE + 1];
+    memset(rcvBuff, 0, sizeof(rcvBuff));
+
+    html = "";
+    css = "";
+    int reciveLength;
+    for (int i = 0; i < fileSize; i += RSP_PACKAGE) {
+        int receiveSize = RSP_PACKAGE;
+        if (i + RSP_PACKAGE > fileSize) {
+            receiveSize = fileSize - i;
         }
 
+        if ((reciveLength = recv(client, rcvBuff, receiveSize, 0)) < 0) {
+            ERR("failed to receive html!");
+            return Response("error");
+        } else {
+            rcvBuff[receiveSize] = 0;
+            html += rcvBuff;
+            memset(rcvBuff, 0, sizeof(rcvBuff));
+        }
+    }
+
+    int htmlEnd = html.find("</html>") + 7;
+    if (htmlEnd > 0) html = html.substr(0, htmlEnd);
+
+    if (dataNumber == 2) {
+        for (int i = 0; i < cssSize; i += RSP_PACKAGE) {
+            int receiveSize = RSP_PACKAGE;
+            if (i + RSP_PACKAGE > cssSize) {
+                receiveSize = cssSize - i;
+            }
+
+            if ((reciveLength = recv(client, rcvBuff, receiveSize, 0)) < 0) {
+                ERR("failed to receive css!");
+                return Response("error");
+            } else {
+                rcvBuff[receiveSize] = 0;
+                css += rcvBuff;
+                memset(rcvBuff, 0, sizeof(rcvBuff));
+            }
+        }
+
+        int cssBegin = css.find("start css.sty") - 3;
+        css = css.substr(cssBegin);
+
         int headPos = html.find("<head>");
+        if (headPos < 0) return Response(html);
         while (html[headPos] != '\n') {
             headPos++;
-            if (headPos > html.length()) break;
+            if (headPos >= html.length()) {
+                return Response(html);
+            }
         }
 
         std :: string front = html.substr(0, headPos + 1);
-        std :: string css = cssChar;
         std :: string behind = html.substr(headPos + 2);
         html = front + "<style>" + css + "</style>" + behind;
     }
@@ -134,7 +164,8 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
     ::closesocket(client);
     WSACleanup();
 
-    return Response(html);
+    if (dataNumber == 2) return Response(html, css);
+    else return Response(html);
 }
 
 
@@ -145,9 +176,9 @@ Response postFile(char *addr, int serverPort, char *target,
     struct sockaddr_in serverAddr;
 
     std :: string header;
-    char sndBuff[RQS_PACKAGE], rcvBuff[RSP_PACKAGE];
-    memset(&sndBuff, 0, sizeof(sndBuff));
-    memset(&rcvBuff, 0, sizeof(rcvBuff));
+    char sndBuff[RQS_PACKAGE + 1], rcvBuff[RSP_PACKAGE + 1];
+    memset(sndBuff, 0, sizeof(sndBuff));
+    memset(rcvBuff, 0, sizeof(rcvBuff));
 
     WSAStartup(MAKEWORD(2, 1), &wsaData);
 
@@ -210,8 +241,10 @@ Response postFile(char *addr, int serverPort, char *target,
 
     LOG(header);
 
+    while (header.length() < RQS_PACKAGE) header += " ";
+
     int reciveLength = 0;
-    if ((reciveLength = send(clientSocket, header.c_str(), header.length(), 0)) < 0) {
+    if ((reciveLength = send(clientSocket, header.c_str(), RQS_PACKAGE, 0)) < 0) {
         ERR("failed to send request header!");
         return Response("error");
     } else {

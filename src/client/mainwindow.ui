@@ -82,7 +82,6 @@ p, li { white-space: pre-wrap; }
     <addaction name="textbf"/>
     <addaction name="emph"/>
     <addaction name="underline"/>
-    <addaction name="action_4"/>
    </widget>
    <addaction name="menuHello_World"/>
    <addaction name="menu"/>
@@ -113,11 +112,6 @@ p, li { white-space: pre-wrap; }
    </property>
    <property name="shortcut">
     <string>Ctrl+U</string>
-   </property>
-  </action>
-  <action name="action_4">
-   <property name="text">
-    <string>引用</string>
    </property>
   </action>
  </widget>
