@@ -8,11 +8,16 @@ DWORD GV::lastUpdate = 0;
 DWORD GV::threadTime = 0;
 
 MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    ui(new Ui::MainWindow) {
-    ui->setupUi(this);
-    postThread = new PostThread(this);
-}
+    QMainWindow(parent), ui(new Ui::MainWindow) {
+        ui->setupUi(this);
+        postThread = new PostThread(this);
+        QTextCursor *textCursor = new QTextCursor(ui->latexEditor->document());
+        textCursor->insertText("\\documentclass{article}\n");
+        textCursor->insertText("\\begin{document}\n\n");
+        textCursor->insertText("\\end{document}");
+        textCursor->setPosition(41);
+        ui->latexEditor->setTextCursor(*textCursor);
+    }
 
 MainWindow::~MainWindow() {
     delete ui;
@@ -20,18 +25,6 @@ MainWindow::~MainWindow() {
 
 void MainWindow::updateUI(QString latexHTML, QString latexCSS) {
     ui->latexPreviwer->setHtml(latexHTML);
-    /*
-    QByteArray tmp = latexHTML.toLatin1();
-    char *latexCSSChar = tmp.data();
-    printf("%d\n", latexCSS.length());
-    QFile file("F://SystemDocument//UItest//tmp.txt");
-    file.open(QFile::WriteOnly);
-    QTextStream out(&file);
-    out << latexCSSChar;
-    file.close();
-    qDebug(latexCSSChar);
-    */
-    //ui->latexPreviwer->setStyleSheet(latexCSS);
 }
 
 void MainWindow::on_latexEditor_textChanged() {
@@ -65,12 +58,52 @@ void MainWindow::on_latexEditor_textChanged() {
     }
     */
     ui->latexPreviwer->setHtml(" ");
-    /*
-    char ip[] = "106.52.251.85";
-    char type[] = "texToHtml";
-    QByteArray transfer = latexText.toLatin1();
-    std :: string latexResult = postFile(ip, 8888, type, transfer.data() , false);
-    ui->latexPreviwer->setHtml(QString::fromStdString(latexResult));
-    */
-    //ui->latexPreviwer->setPlainText();
+}
+
+void MainWindow::on_textbf_triggered() {
+    QTextCursor textCursor = ui->latexEditor->textCursor();
+    if (textCursor.hasSelection()) {
+        QString slecetedText = textCursor.selectedText();
+        QString newText = "\\";
+        newText += "textbf{";
+        newText += slecetedText + "}";
+        textCursor.insertText(newText);
+    } else {
+        textCursor.insertText("\\textbf{}");
+        textCursor.movePosition(QTextCursor::Left,
+                                QTextCursor::MoveAnchor, 1);
+    }
+    ui->latexEditor->setTextCursor(textCursor);
+}
+
+void MainWindow::on_emph_triggered() {
+    QTextCursor textCursor = ui->latexEditor->textCursor();
+    if (textCursor.hasSelection()) {
+        QString slecetedText = textCursor.selectedText();
+        QString newText = "\\";
+        newText += "textsl{";
+        newText += slecetedText + "}";
+        textCursor.insertText(newText);
+    } else {
+        textCursor.insertText("\\textsl{}");
+        textCursor.movePosition(QTextCursor::Left,
+                                QTextCursor::MoveAnchor, 1);
+    }
+    ui->latexEditor->setTextCursor(textCursor);
+}
+
+void MainWindow::on_underline_triggered() {
+    QTextCursor textCursor = ui->latexEditor->textCursor();
+    if (textCursor.hasSelection()) {
+        QString slecetedText = textCursor.selectedText();
+        QString newText = "\\";
+        newText += "underline{";
+        newText += slecetedText + "}";
+        textCursor.insertText(newText);
+    } else {
+        textCursor.insertText("\\underline{}");
+        textCursor.movePosition(QTextCursor::Left,
+                                QTextCursor::MoveAnchor, 1);
+    }
+    ui->latexEditor->setTextCursor(textCursor);
 }

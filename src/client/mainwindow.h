@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QObject>
 #include <Windows.h>
+#include <QTextCursor>
 
 namespace Ui {
     class MainWindow;
@@ -30,9 +31,16 @@ public slots:
 private slots:
     void on_latexEditor_textChanged();
 
+    void on_textbf_triggered();
+
+    void on_emph_triggered();
+
+    void on_underline_triggered();
+
 private:
     Ui::MainWindow *ui;
     PostThread *postThread;
+    QTextCursor textCursor;
 };
 
 #endif // MAINWINDOW_H
