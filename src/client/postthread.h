@@ -14,7 +14,7 @@ private:
     char type[16];
 
 signals:
-    void updateLatex(QString latexHTML);
+    void updateLatex(QString latexHTML, QString latexCSS);
 
 public slots:
     void updateUISlot(QString latexHTML);

@@ -24,7 +24,7 @@ public:
     ~MainWindow();
 
 public slots:
-    void updateUI(QString latexHTML);
+    void updateUI(QString latexHTML, QString latexCSS);
 
 private slots:
     void on_latexEditor_textChanged();

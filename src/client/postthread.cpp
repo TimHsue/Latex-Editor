@@ -13,17 +13,16 @@ PostThread::PostThread(MainWindow *mainWindow_) {
     running = false;
     mutex.unlock();
 
-    connect(this, SIGNAL(updateLatex(QString)), mainWindow_, SLOT(updateUI(QString)));
+    connect(this, SIGNAL(updateLatex(QString, QString)),
+            mainWindow_, SLOT(updateUI(QString, QString)));
 }
 
-void PostThread::updateUISlot(QString latexHTML) {
-    mainWindow -> updateUI(latexHTML);
-}
+void PostThread::updateUISlot(QString latexHTML) {}
 
 void PostThread::run() {
     while (true) {
         DWORD nowTime = GetTickCount();
-        if (nowTime - GV::lastUpdate > 1500) { // terminate after 1500ms
+        if (nowTime - GV::lastUpdate > 1500) { // run after 1500ms
             GV::lastUpdate = nowTime;
 
             mutex.lock();
@@ -31,8 +30,9 @@ void PostThread::run() {
                 needUpdate = false;
                 QByteArray transfer = content.toLatin1();
                 mutex.unlock();
-                std :: string latexResult = postFile(ip, 8888, type, transfer.data() , false);
-                emit updateLatex(QString::fromStdString(latexResult));
+                Response response = postFile(ip, 8888, type, transfer.data() , false);
+                emit updateLatex(QString::fromStdString(response.html),
+                                 QString::fromStdString(response.css));
             } else {
                 mutex.unlock();
             }

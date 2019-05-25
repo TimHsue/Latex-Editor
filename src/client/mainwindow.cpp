@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 #include "postthread.h"
 #include "log.cpp"
+#include <QDebug>
 
 DWORD GV::lastUpdate = 0;
 DWORD GV::threadTime = 0;
@@ -17,8 +18,20 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
-void MainWindow::updateUI(QString latexHTML) {
+void MainWindow::updateUI(QString latexHTML, QString latexCSS) {
     ui->latexPreviwer->setHtml(latexHTML);
+    /*
+    QByteArray tmp = latexCSS.toLatin1();
+    char *latexCSSChar = tmp.data();
+    printf("%d\n", latexCSS.length());
+    QFile file("F://SystemDocument//UItest//tmp.txt");
+    file.open(QFile::WriteOnly);
+    QTextStream out(&file);
+    out << latexCSSChar;
+    file.close();
+    qDebug(latexCSSChar);
+    */
+    //ui->latexPreviwer->setStyleSheet(latexCSS);
 }
 
 void MainWindow::on_latexEditor_textChanged() {
