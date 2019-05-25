@@ -16,6 +16,7 @@ char *readFile(const char *path) {
 
     if (! file) {
         ERR("failed to open file!");
+        return NULL;
     } else {
         LOG("file opened.");
     }
@@ -32,8 +33,8 @@ char *readFile(const char *path) {
     return fileBuff;
 }
 
-void postFile(char *addr, int serverPort, char *target,
-              char *content, bool isFile = true) {
+std :: string postFile(char *addr, int serverPort, char *target,
+                       char *content, bool isFile = true) {
     SOCKET clientSocket;
     WSADATA wsaData;
     struct sockaddr_in serverAddr;
@@ -47,6 +48,7 @@ void postFile(char *addr, int serverPort, char *target,
 
     if ((clientSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         ERR("failed to start socket!");
+        return NULL;
     } else {
         LOG("socket started.");
     }
@@ -59,16 +61,19 @@ void postFile(char *addr, int serverPort, char *target,
     if (::connect(clientSocket, (struct sockaddr *)&serverAddr,
                 sizeof(serverAddr)) < 0) {
         ERR("failed to connect to socket server!");
+        return NULL;
     } else {
         LOG("socket connected.");
     }
 
-    char *fileContent;
+    std :: string tmpContent;
     if (isFile == true) {
-        fileContent = readFile(content);
+        tmpContent = readFile(content);
     } else {
-        fileContent = content;
+        tmpContent = content;
     }
+
+    const char *fileContent = tmpContent.c_str();
 
     int fileLength = strlen(fileContent);
 
@@ -103,23 +108,30 @@ void postFile(char *addr, int serverPort, char *target,
     int reciveLength = 0;
     if ((reciveLength = send(clientSocket, header.c_str(), header.length(), 0)) < 0) {
         ERR("failed to send request header!");
+        return NULL;
     } else {
         LOG("request sent.");
     }
+
+    LOG(fileContent);
 
     if ((reciveLength = send(clientSocket, fileContent, fileLength, 0)) < 0) {
         ERR("failed to send request body!");
+        return NULL;
     } else {
         LOG("request sent.");
     }
 
+    std :: string res = "";
     do {
         FILE* file = fopen("tmp.html", "w");
         if ((reciveLength = recv(clientSocket, rcvBuff, RSP_PACKAGE, 0)) <
             0) {
             ERR("failed to receive response!");
+            return NULL;
         } else if (reciveLength > 0) {
             printf("%s", rcvBuff);
+            res += rcvBuff;
             fputs(rcvBuff, file);
             memset(rcvBuff, 0, sizeof(rcvBuff));
         }
@@ -130,13 +142,8 @@ void postFile(char *addr, int serverPort, char *target,
 
     ::closesocket(clientSocket);
     WSACleanup();
+
+    return res;
 }
 
 #endif
-
-int main() {
-	char ip[] = "106.52.251.85";
-    char type[] = "texToHtml";
-    char transfer[] = "test";
-    postFile(ip, 8888, type, transfer, false);
-}
