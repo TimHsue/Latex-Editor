@@ -10,11 +10,16 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <thread>
+#include <map>
 
 #define SERVER_PORT 8888
-#define RQS_PACKAGE 1024
-#define RSP_PACKAGE 2048
+#define RQS_PACKAGE 256
+#define RSP_PACKAGE 256
+#define COOKIE_LENGTH 16
 #define ISNUM(X) (X <= '9' and X >= '0')
+
+std :: map <std :: string, std :: string> actToVCode;
+std :: map <std :: string, int> lastSent;
 
 char *readFile(const char *path) {
 	FILE* file = fopen(path, "r");
@@ -45,15 +50,184 @@ void writeFile(const char *str, const char *path) {
 		ERR("failed to open file!");
 	} else {
 		LOG("file opened.");
+		fputs(str, file);
+		fclose(file);
 	}
-	
-	fputs(str, file);
-	fclose(file);
 }
 
-void handleGet(std :: string requestHeader) {
+void handleGet(std :: string requestHeader) { }
+
+
+
+
+std :: string genVCode() {
+	std :: string res = "";
+	for (int i = 1; i <= 6; i++) {
+		res += (char)(rand() % 10 + '0');
+	}
+	return res;
+}
+
+void sendVCode(std :: string account) {
+	// todo: check account is a phone number
+	
+	auto VCode = genVCode();
+	// todo: use api
+	
+	actToVCode[account] = VCode;
+}
+
+bool checkVCode(std :: string account, std :: string VCode) {
+	auto it = actToVCode.find(account);
+	if (it == actToVCode.end()) return false;
+	
+	auto sentVCode = actToVCode[account];
+	if (sentVCode.compare(VCode) == 0) return true;
+	return false;
+}
+
+
+std :: string genCookie() {
+	std :: string res = "";
+	for (int i = 1; i = 16; i++) {
+		int type = rand() % 3;
+		if (type == 0) {
+			res += (char)(rand() % 10 + '0');
+		} else if (type == 1) {
+			res += (char)(rand() % 26 + 'a');
+		} else if (type == 2) {
+			res += (char)(rand() % 26 + 'A');
+		}
+	}
+	return res;
+}
+
+std :: string getCookie(std :: string account) {
+	// todo: link to mysql
+	return genCookie();
+}
+
+bool checkPassword(std :: string account, std :: string password) {
+	return false;
+}
+
+std :: string addAccount(std :: string account, std :: string password) {
+	// todo gen cookie at the same time
+} 
+
+
+void handleLogin(std :: string rspHeader, int client, bool login = true, bool rstVCode = false) {
+    int dataNumber = 0;
+    if (login) dataNumber = 2;
+    else if (rstVCode) dataNumber = 1;
+    else dataNumber = dataNumber = 3;
+    char rcvBuff[RQS_PACKAGE + 1];
+    memset(rcvBuff, 0, sizeof(rcvBuff));
+    std :: string account, password, vCode, cookie;
+    int buffLength;
+    
+    /* read act length */
+    int actPos = rspHeader.find("actSize=") + 8;
+    int actLength = 0;
+    while (ISNUM(rspHeader[actPos])) {
+        actLength = actLength * 10 + rspHeader[actPos] - '0';
+        actPos++;
+
+        if (actPos >= rspHeader.length()) break;
+    }
+    
+    /* read act */
+    LOG("actLength", actLength);
+	if ((buffLength = recv(client, rcvBuff, actLength, 0)) < 0) {
+        ERR("failed to receive account!", errno);
+        LOG(rcvBuff);
+		account = "anonymous";
+    } else {
+    	rcvBuff[actLength] = 0;
+    	account = rcvBuff; 
+	}
+	LOG(rcvBuff);
+    
+    
+    /* send vcode */
+    if ((not login) and (rstVCode)) {
+    	LOG("send VCode");
+    	sendVCode(account);
+    	return;
+	}
+    
+    /* read pwd length*/
+    int pwdPos = rspHeader.find("pwdSize=") + 8;
+    int pwdLength = 0;
+    
+    while (ISNUM(rspHeader[pwdPos])) {
+        pwdLength = pwdLength * 10 + rspHeader[pwdPos] - '0';
+        pwdPos++;
+
+        if (pwdPos >= rspHeader.length()) break;
+    }
+    
+    /* read pwd */
+    memset(rcvBuff, 0, sizeof(rcvBuff));
+    if ((buffLength = recv(client, rcvBuff, pwdLength, 0)) < 0) {
+        ERR("failed to receive password!", buffLength);
+		password = "";
+    } else {
+    	rcvBuff[pwdLength] = 0;
+    	password = rcvBuff; 
+	}
+	LOG(rcvBuff);
+	
+	if (login) {
+		if (account.compare("anonymous") == 0 or password.compare("") == 0) {
+			cookie = "network goes wrg";
+		} if (checkPassword(account, password)) {
+			cookie = getCookie(account);
+		} else {
+			cookie = "wrong act or pwd";
+		}
+		
+		/* send cookie */
+		LOG(cookie);
+		if (send(client, cookie.c_str(), COOKIE_LENGTH, 0) < 0) {
+	        ERR("failed to send cookie!");
+	    } else {
+	        LOG("cookie sent.");
+	    }
+	    return;
+	}
+	
+	
+	if ((not login) and (not rstVCode)) {
+		/* read vcode */
+	    memset(rcvBuff, 0, sizeof(rcvBuff));
+	    if ((buffLength = recv(client, rcvBuff, 7, 0)) < 0) {
+	        ERR("failed to receive vcode!", buffLength);
+			vCode = "";
+	    } else {
+	    	rcvBuff[7] = 0;
+	    	vCode = rcvBuff; 
+		}
+		LOG(rcvBuff);
+
+		if (checkVCode(account, vCode)) {
+			cookie = addAccount(account, password);
+		} else {
+			cookie = "wrong vrfy codes";
+		}
+		
+		/* send cookie */
+		LOG(cookie);
+		if (send(client, cookie.c_str(), COOKIE_LENGTH, 0) < 0) {
+	        ERR("failed to send cookie!");
+	    } else {
+	        LOG("cookie sent.");
+	    }
+	    return;
+	}
 	
 }
+
 
 void handlePost(std :: string requestHeader, int client, int threadNumber) {
 	int requestPos = 0;
@@ -63,13 +237,24 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 	
 	std :: string request = "";
 	
-	while (requestHeader[requestPos] != ' ') {
+	while (requestHeader[requestPos] != ' ' and requestHeader[requestPos] != '&') {
 		request += requestHeader[requestPos];
 		requestPos++;
 	
 		if (requestPos > requestHeader.length()) {
 			break;
 		}
+	}
+
+	if (request.compare("?login") == 0) {
+		handleLogin(requestHeader, client);
+		return ;
+	} else if (request.compare("?signin") == 0) {
+		handleLogin(requestHeader, client, false);
+		return ;
+	} else if (request.compare("?vcode") == 0) {
+		handleLogin(requestHeader, client, false, true);
+		return ;
 	}
 		
 	int typePos = 0;
@@ -112,13 +297,22 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 		
 		LOG(std :: to_string(dataSize) + "(SIZE)");
 		
-		char *content = new char[dataSize + 1];
-		
+		char *content = new char[dataSize + 27];
+
 		if (recv(client, content, dataSize, 0) < 0) {
             ERR("failed to receive file!");
         } else {
-        	printf("%s", content);
+        	content[dataSize] = 0;
 		}
+		
+		strcpy(content + dataSize, "lack of end");
+		content[dataSize + 11] = '\n';
+		content[dataSize + 12] = '\\';
+		strcpy(content + dataSize + 13, "end{document}");
+		content[dataSize + 26] = 0;
+		
+		LOG(content); 
+		
 		
 		if (request.compare("?texToHtml") == 0 or
 			request.compare("?texToPdf") == 0) {
@@ -136,6 +330,7 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 			std :: string fileName = baseName + ".tex";
 			
 			std :: string tmpFile = threadPath + "/" + fileName;
+			
 			LOG(tmpFile);
 			writeFile(content, tmpFile.c_str());
 			
@@ -150,29 +345,6 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 			LOG(com);
 			system(com.c_str());
 			
-			/* 
-			com = "";
-			com += "cp ";
-			com += "tmptex";
-			com += to_string(threadNumber) + ".pdf " + threadPath;
-			LOG(com);
-			system(com.c_str());
-			
-			com = "";
-			com += "cp ";
-			com += "tmptex";
-			com += to_string(threadNumber) + "-final.html " + threadPath;
-			LOG(com);
-			system(com.c_str());
-			
-			com = ""; 
-			com += "rm ";
-			com += "tmptex";
-			com += to_string(threadNumber) + "*";
-			LOG(com);
-			system(com.c_str());
-			*/
-			
 			std :: string responseFile = "";
 			
 			if (request.compare("?texToHtml") == 0) {
@@ -184,16 +356,79 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 			LOG(responseFile);
 			
 			char *fileContent = readFile(responseFile.c_str());
+			char *cssContent = NULL;
+			int fileLength, cssLength;
 			if (fileContent == NULL) {
 				fileContent = "Something goes wrong with rendering latex.";
+			} else {
+				std :: string cssName = baseName + ".css";
+				cssContent = readFile(cssName.c_str());
 			}
-			int fileLength = strlen(fileContent);
 			
-			if (send(client, fileContent, fileLength, 0) < 0) {
-		        ERR("failed to send response!");
+			std :: string rspHeader = "";
+			fileLength = strlen(fileContent);
+			
+			if (cssContent == NULL) {
+				rspHeader = "dataNumber=1\r\n";
+				rspHeader += "fileSize=";
+				rspHeader += std :: to_string(fileLength);
+			} else {
+				rspHeader = "dataNumber=2\r\n";
+				rspHeader += "fileSize=";
+				rspHeader += std :: to_string(fileLength);
+				rspHeader += "\r\n";
+				
+				cssLength = strlen(cssContent);
+				rspHeader += "cssSize=";
+				rspHeader += std :: to_string(cssLength);
+				rspHeader += "\r\n";
+			}
+			
+			while(rspHeader.length() < RSP_PACKAGE) rspHeader += ' ';
+			
+			if (send(client, rspHeader.c_str(), RSP_PACKAGE, 0) < 0) {
+		        ERR("failed to send response header!");
 		    } else {
-		        LOG("response sent.");
+		        LOG("response header sent.");
 		    }
+			
+			char rcvBuff[RSP_PACKAGE + 1];
+   			memset(rcvBuff, 0, sizeof(rcvBuff));
+   			
+			for (int i = 0; i < fileLength; i += RSP_PACKAGE) {
+		    	int sendSize = RSP_PACKAGE;
+		    	if (i + RSP_PACKAGE > fileLength) {
+		    		sendSize = fileLength - i;
+				}
+				
+				strncpy(rcvBuff, fileContent + i, sendSize);
+				rcvBuff[sendSize] = 0;
+				LOG(rcvBuff);
+				
+		    	if (send(client, rcvBuff, sendSize, 0) < 0) {
+			        ERR("failed to receive css!");
+			    }
+			}
+		    LOG("file sent.");
+		
+		    
+		    if (cssContent != NULL) {
+			    for (int i = 0; i < cssLength; i += RSP_PACKAGE) {
+			    	int sendSize = RSP_PACKAGE;
+			    	if (i + RSP_PACKAGE > cssLength) {
+			    		sendSize = cssLength - i;
+					}
+					
+					strncpy(rcvBuff, cssContent + i, sendSize);
+					rcvBuff[sendSize] = 0;
+					LOG(rcvBuff);
+					
+			    	if (send(client, rcvBuff, sendSize, 0) < 0) {
+				        ERR("failed to receive css!");
+				    }
+				}
+			    LOG("css sent.");
+			}
 		    
 		    com = "rm ";
 		    com += "tmptex";
@@ -208,10 +443,11 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 }
 
 int main() {
+	srand((unsigned)time(NULL));
     int serverSocket;
     struct sockaddr_in serverAddr;
 
-    char sndBuff[RSP_PACKAGE], rcvBuff[RQS_PACKAGE];
+    char sndBuff[RSP_PACKAGE + 1], rcvBuff[RQS_PACKAGE + 1];
 
     if ((serverSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         ERR("failed to start socket!");
@@ -236,7 +472,13 @@ int main() {
     } else {
         LOG("listening started.");
     }
-
+	
+	int recvTimeout = 3 * 1000;
+	int sendTimeout = 3 * 1000; 
+	
+	setsockopt(serverSocket, SOL_SOCKET, SO_RCVTIMEO, (char *)&recvTimeout ,sizeof(int));
+	setsockopt(serverSocket, SOL_SOCKET, SO_SNDTIMEO, (char *)&sendTimeout ,sizeof(int));
+	
     while (true) {
         struct sockaddr_in clientAddr;
         socklen_t clientAddrLength = sizeof(clientAddr);
@@ -247,11 +489,14 @@ int main() {
             ERR("failed to link to client!");
         } else {
             LOG("clint linked.");
-
-            if (recv(client, rcvBuff, RQS_PACKAGE, 0) < 0) {
+			
+			int length = 0;
+            if ((length = recv(client, rcvBuff, RQS_PACKAGE, 0)) < 0) {
                 ERR("failed to read requst!");
             } else {
-                LOG("request read.");
+                LOG("request read."); 
+                rcvBuff[RQS_PACKAGE] = 0;
+                LOG(std :: to_string(length));
                 printf("%s", rcvBuff);
 				std :: string requestHeader = rcvBuff;
 				
@@ -280,6 +525,7 @@ int main() {
                     }
                 }
                 */
+                Sleep(2); // waiting for buffer
                 close(client);
             }
         }

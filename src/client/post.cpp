@@ -9,6 +9,8 @@
 #define RQS_PACKAGE 256
 #define RSP_PACKAGE 256
 #define BOUNDARY "TPafZ#C3T"
+#define COOKIE_LENGTH 16
+#define BASIC_COOKIE "NOLOGIN"
 #define ISNUM(X) (X <= '9' && X >= '0')
 
 class Response {
@@ -122,8 +124,8 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
         }
     }
 
-    int htmlEnd = html.find("</html>") + 7;
-    if (htmlEnd > 0) html = html.substr(0, htmlEnd);
+    int htmlEnd = html.find("</html>");
+    if (htmlEnd > 0) html = html.substr(0, htmlEnd + 7);
 
     if (dataNumber == 2) {
         for (int i = 0; i < cssSize; i += RSP_PACKAGE) {
@@ -161,11 +163,177 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
 
     LOG("all response read.");
 
-    ::closesocket(client);
+    closesocket(client);
     WSACleanup();
-
     if (dataNumber == 2) return Response(html, css);
     else return Response(html);
+}
+
+
+std :: string postLog(char *addr, int serverPort, std :: string account, std :: string password,
+                    bool isSignin = false, bool rqsVCode = false, int vCode = 0) {
+    /* link to server*/
+    SOCKET clientSocket;
+    WSADATA wsaData;
+    struct sockaddr_in serverAddr;
+
+    std :: string header = "";
+    char sndBuff[RQS_PACKAGE + 1], rcvBuff[RSP_PACKAGE + 1];
+    memset(sndBuff, 0, sizeof(sndBuff));
+    memset(rcvBuff, 0, sizeof(rcvBuff));
+
+    WSAStartup(MAKEWORD(2, 1), &wsaData);
+
+    if ((clientSocket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        ERR("failed to start socket!");
+        return BASIC_COOKIE;
+    } else {
+        LOG("socket started.");
+    }
+
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = ::htons(serverPort);
+    serverAddr.sin_addr.S_un.S_addr = inet_addr(addr);
+
+    if (::connect(clientSocket, (struct sockaddr *)&serverAddr,
+                  sizeof(serverAddr)) < 0) {
+        ERR("failed to connect to socket server!");
+        return BASIC_COOKIE;
+    } else {
+        LOG("socket connected.");
+    }
+
+    /* gen header */
+    header = "";
+    header += "POST http://";
+    header += addr;
+    header += ":";
+    header += std :: to_string(serverPort);
+    header += "?";
+    if (! isSignin) {
+        header += "login";
+    } else {
+        if (rqsVCode) {
+            header += "vcode";
+        } else {
+            header += "signin";
+        }
+    }
+    header += " HTTP/1.0\r\n";
+
+    header += "Host: ";
+    header += addr;
+    header += ":";
+    header += std :: to_string(serverPort);
+    header += "\r\n";
+
+    header += "Connection: keep-alive\r\n";
+
+    header += "Accept: */*\r\n";
+
+    if (! isSignin) {
+        header += "Content-Type: text=2\r\n";
+    } else {
+        if (rqsVCode) {
+            header += "Content-Type: text=1\r\n";
+        } else {
+            header += "Content-Type: text=3\r\n";
+        }
+    }
+
+    header += "\r\n";
+
+    header += "actSize=" + std :: to_string(account.length());
+    header += "\r\n";
+
+    if (! isSignin) {
+        header += "pwdSize=" + std :: to_string(password.length());
+        header += "\r\n";
+    } else if (! rqsVCode) {
+        header += "pwdSize=" + std :: to_string(password.length());
+        header += "\r\n";
+    }
+
+    while (header.length() <= RQS_PACKAGE) header += "-";
+
+    LOG(header);
+
+    /* send header */
+    int reciveLength = 0;
+    if ((reciveLength = send(clientSocket, header.c_str(), RQS_PACKAGE, 0)) < 0) {
+        ERR("failed to send request header!");
+        return BASIC_COOKIE;
+    } else {
+        LOG("request sent.");
+    }
+
+    /* send act */
+    LOG(account);
+    if ((reciveLength = send(clientSocket, account.c_str(), account.length(), 0)) < 0) {
+        ERR("failed to send account!");
+        return BASIC_COOKIE;
+    } else {
+        LOG("request sent.");
+    }
+
+    if (! isSignin) {
+        /* send pwd */
+        LOG(password);
+        if ((reciveLength = send(clientSocket, password.c_str(), password.length(), 0)) < 0) {
+            ERR("failed to send pwd!");
+            return BASIC_COOKIE;
+        } else {
+            LOG("request sent.");
+        }
+    } else if (! rqsVCode) {
+        /* send pwd */
+        LOG(password);
+        if ((reciveLength = send(clientSocket, password.c_str(), password.length(), 0)) < 0) {
+            ERR("failed to send pwd!");
+            return BASIC_COOKIE;
+        } else {
+            LOG("request sent.");
+        }
+
+        std :: string vCodeString = std :: to_string(vCode);
+        /* send vcode */
+        if ((reciveLength = send(clientSocket, vCodeString.c_str(), 7, 0)) < 0) {
+            ERR("failed to send vcode!");
+            return BASIC_COOKIE;
+        } else {
+            LOG("request sent.");
+        }
+    }
+
+    if (! rqsVCode) {
+        /* recerve cookie */
+        if ((reciveLength = recv(clientSocket, rcvBuff, COOKIE_LENGTH, 0)) < 0) {
+            ERR("failed to receive cookie!");
+            return BASIC_COOKIE;
+        } else if (reciveLength > 0) {
+            rcvBuff[COOKIE_LENGTH] = 0;
+            LOG(rcvBuff);
+
+            Sleep(1);
+            closesocket(clientSocket);
+            WSACleanup();
+            return rcvBuff;
+        }
+    } else {
+
+        Sleep(1);
+        closesocket(clientSocket);
+        WSACleanup();
+        return "Waiting for vcode";
+    }
+
+
+    Sleep(1);
+    closesocket(clientSocket);
+    WSACleanup();
+
+    return BASIC_COOKIE;
 }
 
 

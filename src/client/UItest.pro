@@ -29,14 +29,19 @@ SOURCES += \
         mainwindow.cpp \
     post.cpp \
     log.cpp \
-    postthread.cpp
+    postthread.cpp \
+    login.cpp \
+    login.cpp
 
 HEADERS += \
         mainwindow.h \
-    postthread.h
+    postthread.h \
+    login.h \
+    login.h
 
 FORMS += \
-        mainwindow.ui
+        mainwindow.ui \
+    login.ui
 
 LIBS += -lWs2_32
 

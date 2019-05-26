@@ -8,14 +8,7 @@
 
 #define DEBUG
 
-#ifdef DEBUG
-#define OUTSTREAM stdout
-#else
-FILE* file = fopen("log.out", "a");
-#define OUTSTREAM file
-#endif  /* DEBUG */
-
-inline void LOG(std :: string msg) {
+inline void LOG(std :: string msg, int code = -1) {
     time_t timeP;
     time(&timeP);
     char timeF[64];
@@ -23,10 +16,17 @@ inline void LOG(std :: string msg) {
     localtime_r(&timeP, &nowTime);
     sprintf(timeF, "%04d-%02d-%02d %02d:%02d:%02d", nowTime.tm_year + 1900, nowTime.tm_mon + 1,
             nowTime.tm_mday, nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
-    fprintf(OUTSTREAM, "\nLOG %s\n%s\n", timeF, msg.c_str());
+#ifdef DEBUG
+	fprintf(stdout, "\nLOG %s\n%s with code: %d\n", timeF, msg.c_str(), code);
+#else
+	FILE* file = fopen("log.out", "a");
+	fprintf(file, "\nLOG %s\n%s with code: %d\n", timeF, msg.c_str(), code);
+	fclose(file);
+#endif  /* DEBUG */
+    
 }
 
-inline void ERR(std :: string msg) {
+inline void ERR(std :: string msg, int code =-1) {
     time_t timeP;
     time(&timeP);
     char timeF[64];
@@ -34,7 +34,13 @@ inline void ERR(std :: string msg) {
     localtime_r(&timeP, &nowTime);
     sprintf(timeF, "%04d-%02d-%02d %02d:%02d:%02d", nowTime.tm_year + 1900, nowTime.tm_mon + 1,
             nowTime.tm_mday, nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
-    fprintf(OUTSTREAM, "\nERROR %s\n%s\n", timeF, msg.c_str());
+#ifdef DEBUG
+	fprintf(stdout, "\nERROR %s\n%s with code: %d\n", timeF, msg.c_str(), code);
+#else
+	FILE* file = fopen("log.out", "a");
+	fprintf(file, "\nERROR %s\n%s with code: %d\n", timeF, msg.c_str(), code);
+	fclose(file);
+#endif  /* DEBUG */
 }
 
 #endif /* LOG_CPP */

@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent), ui(new Ui::MainWindow) {
         ui->setupUi(this);
         postThread = new PostThread(this);
+        loginClient = new login(this);
         QTextCursor *textCursor = new QTextCursor(ui->latexEditor->document());
         textCursor->insertText("\\documentclass{article}\n");
         textCursor->insertText("\\begin{document}\n\n");
@@ -106,4 +107,8 @@ void MainWindow::on_underline_triggered() {
                                 QTextCursor::MoveAnchor, 1);
     }
     ui->latexEditor->setTextCursor(textCursor);
+}
+
+void MainWindow::on_login_triggered() {
+    loginClient->show();
 }

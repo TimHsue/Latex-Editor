@@ -5,6 +5,7 @@
 #include <QObject>
 #include <Windows.h>
 #include <QTextCursor>
+#include "login.h"
 
 namespace Ui {
     class MainWindow;
@@ -16,6 +17,7 @@ class GV {
 public:
     static DWORD lastUpdate;
     static DWORD threadTime;
+    static std :: string cookie;
 };
 
 class MainWindow : public QMainWindow {
@@ -37,10 +39,13 @@ private slots:
 
     void on_underline_triggered();
 
+    void on_login_triggered();
+
 private:
     Ui::MainWindow *ui;
     PostThread *postThread;
     QTextCursor textCursor;
+    login *loginClient;
 };
 
 #endif // MAINWINDOW_H

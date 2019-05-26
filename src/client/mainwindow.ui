@@ -76,8 +76,12 @@ p, li { white-space: pre-wrap; }
    </property>
    <widget class="QMenu" name="menuHello_World">
     <property name="title">
-     <string>文件</string>
+     <string>账号</string>
     </property>
+    <addaction name="signin"/>
+    <addaction name="separator"/>
+    <addaction name="login"/>
+    <addaction name="logout"/>
    </widget>
    <widget class="QMenu" name="menu">
     <property name="title">
@@ -87,6 +91,13 @@ p, li { white-space: pre-wrap; }
     <addaction name="emph"/>
     <addaction name="underline"/>
    </widget>
+   <widget class="QMenu" name="menu_2">
+    <property name="title">
+     <string>文件</string>
+    </property>
+    <addaction name="getFile"/>
+   </widget>
+   <addaction name="menu_2"/>
    <addaction name="menuHello_World"/>
    <addaction name="menu"/>
   </widget>
@@ -116,6 +127,38 @@ p, li { white-space: pre-wrap; }
    </property>
    <property name="shortcut">
     <string>Ctrl+U</string>
+   </property>
+  </action>
+  <action name="login">
+   <property name="text">
+    <string>登陆</string>
+   </property>
+   <property name="toolTip">
+    <string>登陆</string>
+   </property>
+  </action>
+  <action name="logout">
+   <property name="text">
+    <string>注销</string>
+   </property>
+   <property name="toolTip">
+    <string>注销</string>
+   </property>
+  </action>
+  <action name="signin">
+   <property name="text">
+    <string>注册</string>
+   </property>
+   <property name="toolTip">
+    <string>注册</string>
+   </property>
+  </action>
+  <action name="getFile">
+   <property name="text">
+    <string>获取文件</string>
+   </property>
+   <property name="toolTip">
+    <string>获取文件</string>
    </property>
   </action>
  </widget>
