@@ -234,10 +234,12 @@ void login::on_loginButton_clicked() {
 
     std :: string cookie =
             postLog(ip, 8888, accountBA.data(), passwordBA.data());
-    if (cookie.compare("network goes wrg")) {
-
-    } else if (cookie.compare("wrong act or pwd")) {
-
+    if (cookie.compare("network goes wrg") == 0) {
+        QMessageBox::information(NULL, "Error", "network goes wrong.",
+                                 QMessageBox::Ok, QMessageBox::Ok);
+    } else if (cookie.compare("wrong act or pwd") == 0) {
+        QMessageBox::information(NULL, "Wrong", "Wrong account or password.",
+                                 QMessageBox::Ok, QMessageBox::Ok);
     } else {
 // Todo: save cookie
         GV::cookie = cookie;
@@ -268,14 +270,17 @@ void login::on_signButton_clicked() {
     std :: string cookie =
             postLog(ip, 8888, accountBA.data(), passwordBA.data(),
                     true, false, vCode.toInt());
-    if (cookie.compare("network goes wrg")) {
-        QMessageBox::information(NULL, "Error", "network goes wrong",
+
+    if (cookie.compare("network goes wrg") == 0) {
+        QMessageBox::information(NULL, "Error", "network goes wrong.",
                                  QMessageBox::Ok, QMessageBox::Ok);
-    } else if (cookie.compare("wrong act or pwd")) {
-        QMessageBox::information(NULL, "Wrong", "Wrong account or password",
+    } else if (cookie.compare("wrong act or pwd") == 0) {
+        QMessageBox::information(NULL, "Wrong", "Wrong account or password.",
+                                 QMessageBox::Ok, QMessageBox::Ok);
+    } else if (cookie.compare("aleady hadacount") == 0) {
+        QMessageBox::information(NULL, "Wrong", "account has existed.",
                                  QMessageBox::Ok, QMessageBox::Ok);
     } else {
-// Todo: save cookie
         GV::cookie = cookie;
         this->close();
     }

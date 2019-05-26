@@ -157,9 +157,12 @@ User findUser(std :: string account) {
 	} else {
 		MYSQL_RES *result = mysql_store_result(&mysqlServer);
 		if (result != NULL) {
-			LOG("found in sql");
-            MYSQL_ROW row = mysql_fetch_row(result);
-            return User(row[0], row[1], row[2], row[4]); 
+			MYSQL_ROW row;
+			if (row = mysql_fetch_row(result)) {
+				LOG("found in sql");
+ 		    	return User(row[0], row[1], row[2], row[4]); 
+			}
+
 		}
 	}
 	

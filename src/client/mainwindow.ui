@@ -78,10 +78,8 @@ p, li { white-space: pre-wrap; }
     <property name="title">
      <string>账号</string>
     </property>
-    <addaction name="signin"/>
     <addaction name="separator"/>
     <addaction name="login"/>
-    <addaction name="logout"/>
    </widget>
    <widget class="QMenu" name="menu">
     <property name="title">
