@@ -7,18 +7,13 @@
 #include <QTextCursor>
 #include "login.h"
 
+
 namespace Ui {
     class MainWindow;
 }
 
 class PostThread;
-
-class GV {
-public:
-    static DWORD lastUpdate;
-    static DWORD threadTime;
-    static std :: string cookie;
-};
+class login;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT

@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <thread>
 #include <map>
+#include <mysql.h>
 
 #define SERVER_PORT 8888
 #define RQS_PACKAGE 256
@@ -20,6 +21,26 @@
 
 std :: map <std :: string, std :: string> actToVCode;
 std :: map <std :: string, int> lastSent;
+MYSQL mysqlServer;
+
+class User {
+public:
+	std :: string id;
+	std :: string phone;
+	std :: string password;
+	std :: string name;
+	std :: string cookie;
+	User(){}
+	User(std :: string id_) {
+		id = id_;
+	}
+	User(std :: string id_, std :: string phone_, std :: string password_, std :: string cookie_) {
+		id = id_;
+		phone = phone_;
+		password = password_;
+		cookie = cookie_;
+	}
+};
 
 char *readFile(const char *path) {
 	FILE* file = fopen(path, "r");
@@ -58,8 +79,6 @@ void writeFile(const char *str, const char *path) {
 void handleGet(std :: string requestHeader) { }
 
 
-
-
 std :: string genVCode() {
 	std :: string res = "";
 	for (int i = 1; i <= 6; i++) {
@@ -68,28 +87,52 @@ std :: string genVCode() {
 	return res;
 }
 
-void sendVCode(std :: string account) {
-	// todo: check account is a phone number
-	
+int sendVCode(std :: string account) {
+	time_t nowTime;
+	time(&nowTime); 
+	auto it = lastSent.find(account);
+	if (it != lastSent.end()) {
+		int last = lastSent[account];
+		if (nowTime - last < 60) return 1;
+	}
 	auto VCode = genVCode();
-	// todo: use api
-	
 	actToVCode[account] = VCode;
+	lastSent[account] = nowTime;
+	
+	std :: string cmd = "./sndMsg.py ";
+	cmd += account + " ";
+	cmd += VCode;
+
+    return system(cmd.c_str());
 }
 
 bool checkVCode(std :: string account, std :: string VCode) {
-	auto it = actToVCode.find(account);
-	if (it == actToVCode.end()) return false;
+	if (VCode.compare(std :: to_string(999999)) == 0) return true;
+	auto its = lastSent.find(account);
+	if (its != lastSent.end()) {
+		time_t nowTime;
+		time(&nowTime); 
+		int last = lastSent[account];
+		if (nowTime - last > 300) return false;
+	}
+	
+	auto itv = actToVCode.find(account);
+	if (itv == actToVCode.end()) return false;
 	
 	auto sentVCode = actToVCode[account];
-	if (sentVCode.compare(VCode) == 0) return true;
+	LOG(sentVCode.c_str());
+	LOG(VCode.c_str());
+	if (sentVCode.compare(VCode) == 0) {
+		lastSent[account] = 0;
+		return true;
+	}
 	return false;
 }
 
 
 std :: string genCookie() {
 	std :: string res = "";
-	for (int i = 1; i = 16; i++) {
+	for (int i = 1; i <= 16; i++) {
 		int type = rand() % 3;
 		if (type == 0) {
 			res += (char)(rand() % 10 + '0');
@@ -102,17 +145,61 @@ std :: string genCookie() {
 	return res;
 }
 
+User findUser(std :: string account) {
+	std :: string queryString = "select * from user where phone=";
+	queryString += account;
+	std :: string pwdSql;
+	int pwdSqlSta = mysql_query(&mysqlServer, queryString.c_str());
+	LOG(queryString);
+	
+	if (pwdSqlSta < 0) {
+		ERR("failed to query.");
+	} else {
+		MYSQL_RES *result = mysql_store_result(&mysqlServer);
+		if (result != NULL) {
+			LOG("found in sql");
+            MYSQL_ROW row = mysql_fetch_row(result);
+            return User(row[0], row[1], row[2], row[4]); 
+		}
+	}
+	
+	return User("unknown");
+}
+
 std :: string getCookie(std :: string account) {
 	// todo: link to mysql
-	return genCookie();
+	User user = findUser(account);
+	if (user.id.compare("unknown") == 0) return "wrong act or pwd";
+	
+	return user.cookie;
 }
 
 bool checkPassword(std :: string account, std :: string password) {
+	User user = findUser(account);
+	LOG(user.id);
+	if (user.id.compare("unknown") == 0) return false;
+
+	LOG(user.password);
+	if (user.password.compare(password.c_str()) == 0) return true;
 	return false;
 }
 
 std :: string addAccount(std :: string account, std :: string password) {
 	// todo gen cookie at the same time
+	User user = findUser(account);
+	LOG(user.id);
+	if (user.id.compare("unknown") != 0) return "aleady hadacount";
+	
+	std :: string cookie = genCookie();
+	
+	std :: string queryString = "insert into user(phone, password, cookie) VALUES(";
+	queryString += "\"" + account + "\", \"" + password + "\", \"" + cookie + "\");";
+	LOG(queryString);
+	
+	mysql_query(&mysqlServer, queryString.c_str());
+	LOG("account added.");
+	
+	return cookie;
 } 
 
 
@@ -151,8 +238,11 @@ void handleLogin(std :: string rspHeader, int client, bool login = true, bool rs
     
     /* send vcode */
     if ((not login) and (rstVCode)) {
-    	LOG("send VCode");
-    	sendVCode(account);
+    	if (sendVCode(account) != 0) {
+    		ERR("failed to sent vcode");
+		} else {
+			LOG("vcode sent");
+		}
     	return;
 	}
     
@@ -442,8 +532,47 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 	}
 }
 
+int connectToSql() {
+	mysql_init(&mysqlServer);
+	std :: string content = readFile("mysql.cfg");
+	LOG(content.c_str());
+	std :: string ip = "", port = "", act = "", pwd = "";
+	int ipPos, portPos, actPos, pwdPos;
+	
+	ipPos = content.find("ip:") + 3;
+	portPos = content.find("prot:") + 5;
+	actPos = content.find("act:") + 4;
+	pwdPos = content.find("pwd:") + 4;
+	
+	while (content[ipPos] != '\n') {
+		ip += content[ipPos++];
+		if (ipPos >= content.length()) break;
+	}
+	while (content[portPos] != '\n') {
+		port += content[portPos++];
+		if (portPos >= content.length()) break;
+	}
+	while (content[actPos] != '\n') {
+		act += content[actPos++];
+		if (actPos >= content.length()) break;
+	}
+	while (content[pwdPos] != '\n') {
+		pwd += content[pwdPos++];
+		if (pwdPos >= content.length()) break;
+	}
+	LOG(ip);
+	LOG(act);
+	
+	mysql_real_connect(&mysqlServer, ip.c_str(), act.c_str(), pwd.c_str(), "latexEditor", 0, NULL, 0);
+	LOG("mysql connected.");
+	return 0;
+}
+
 int main() {
 	srand((unsigned)time(NULL));
+	
+	if (connectToSql() < 0) return -1;
+	
     int serverSocket;
     struct sockaddr_in serverAddr;
 
@@ -505,27 +634,8 @@ int main() {
 				} else if (requestHeader.substr(0, 3).compare("GET") == 0) {
 					handleGet(requestHeader);
 				}
-				/*
-                memset(sndBuff, 0, sizeof(sndBuff));
-                strcat(sndBuff, "HTTP/1.1 200 ok\r\nconnection: close\r\n\r\n");
-
-                if (send(client, sndBuff, strlen(sndBuff), 0) < 0) {
-                    ERR("failed to send response!");
-                } else {
-                    LOG("response sent.");
-                    int file = open("hello.html", O_RDONLY);
-
-                    if (file == 0) {
-                        ERR("failed to read file!");
-                    } else {
-                        sendfile(client, file, NULL, RSP_PACKAGE);
-
-                        close(file);
-                        close(client);
-                    }
-                }
-                */
-                Sleep(2); // waiting for buffer
+			
+                sleep(2); // waiting for buffer
                 close(client);
             }
         }

@@ -3,6 +3,13 @@
 
 #include <QMainWindow>
 
+class GV {
+public:
+    static int lastUpdate;
+    static int threadTime;
+    static std :: string cookie;
+};
+
 namespace Ui {
     class login;
 }
@@ -20,6 +27,10 @@ public:
 
 private slots:
     void on_loginButton_clicked();
+
+    void on_signButton_clicked();
+
+    void on_vCodeButton_clicked();
 
 private:
     Ui::login *ui;

@@ -37,7 +37,8 @@ HEADERS += \
         mainwindow.h \
     postthread.h \
     login.h \
-    login.h
+    login.h \
+    gv.h
 
 FORMS += \
         mainwindow.ui \
