@@ -12,16 +12,19 @@
 #include <thread>
 #include <map>
 #include <mysql.h>
+#include <algorithm>
 
 #define SERVER_PORT 8888
 #define RQS_PACKAGE 256
 #define RSP_PACKAGE 256
+#define RSP_PACKAGEF 256
 #define COOKIE_LENGTH 16
 #define ISNUM(X) (X <= '9' and X >= '0')
 
 std :: map <std :: string, std :: string> actToVCode;
 std :: map <std :: string, int> lastSent;
 MYSQL mysqlServer;
+int readFileLength;
 
 class User {
 public:
@@ -43,12 +46,16 @@ public:
 };
 
 char *readFile(const char *path) {
-	FILE* file = fopen(path, "r");
+	FILE* file = fopen(path, "rb");
 	int fileLength = 0;
 	
 	if (not file) {
 		ERR("failed to open file!");
-		return NULL;
+		char *tmp = new char[32];
+		strcpy(tmp, "failed to render latex!");
+		readFileLength = 23;
+		tmp[23] = 0;
+		return tmp;
 	} else {
 		LOG("file opened.");
 	}
@@ -58,6 +65,7 @@ char *readFile(const char *path) {
 	rewind(file);
 	
 	char *fileBuff = new char[fileLength + 1];
+	readFileLength = fileLength;
 	memset(fileBuff, 0, sizeof(fileBuff));
 	fread(fileBuff, sizeof(char), fileLength, file);
 	
@@ -78,7 +86,7 @@ void writeFile(const char *str, const char *path) {
 
 void handleGet(std :: string requestHeader) { }
 
-
+/* for user ****************************************************/
 std :: string genVCode() {
 	std :: string res = "";
 	for (int i = 1; i <= 6; i++) {
@@ -162,7 +170,6 @@ User findUser(std :: string account) {
 				LOG("found in sql");
  		    	return User(row[0], row[1], row[2], row[4]); 
 			}
-
 		}
 	}
 	
@@ -170,7 +177,6 @@ User findUser(std :: string account) {
 }
 
 std :: string getCookie(std :: string account) {
-	// todo: link to mysql
 	User user = findUser(account);
 	if (user.id.compare("unknown") == 0) return "wrong act or pwd";
 	
@@ -204,7 +210,78 @@ std :: string addAccount(std :: string account, std :: string password) {
 	
 	return cookie;
 } 
+/* for user end ****************************************************/
 
+/* for upload ****************************************************/
+std :: string replaceQ(std :: string &tar) {
+	std :: string res = "";
+	for (auto item : tar) {
+		if (item == '\"') {
+			res += '\\' + '\"';
+		} else if (item == '\'') {
+			res += '\\' + '\'';
+		} else if (item == '\\'){
+			res += '\\';
+			res += '\\';
+		} else {
+			res += item;
+		}
+	}
+	return res;
+}
+
+void saveToSql(std :: string cookie, std :: string name, std :: string content) {
+	std :: string queryString = "select * from texCloud where name=";
+	queryString += "\"" + name + "\" and cookie=\"" + cookie + "\";";
+	LOG(queryString);
+	int querySta = mysql_query(&mysqlServer, queryString.c_str());
+	content = replaceQ(content);
+	
+	if (querySta < 0) {
+		LOG("failed to qeury", querySta);
+	} else {
+		MYSQL_RES *result = mysql_store_result(&mysqlServer);
+		if (result) {
+			MYSQL_ROW row;
+			if (row = mysql_fetch_row(result)) {
+				std :: string insertString = "update texCloud set text=";
+				insertString += "\"" + content + "\" where name=";
+				insertString += "\"" + name + "\" and cookie=\"" + cookie + "\";";
+				LOG(insertString);
+				mysql_query(&mysqlServer, insertString.c_str());
+			} else {
+				std :: string insertString = "insert into texCloud(cookie, name, text) VALUES(";
+				insertString += "\"" + cookie + "\", \"" + name + "\", \"" + content + "\");";
+				LOG(insertString);
+				mysql_query(&mysqlServer, insertString.c_str());
+			}
+		}
+	}
+}
+/* for upload end****************************************************/
+
+/* for download ****************************************************/
+std :: string getTex(std :: string name, std :: string cookie) {
+	std :: string queryString = "select * from texCloud where name=";
+	queryString += "\"" + name + "\" and cookie=\"" + cookie + "\";";
+	LOG(queryString);
+	int querySta = mysql_query(&mysqlServer, queryString.c_str());
+	
+	if (querySta < 0) {
+		return "No such a file";
+	} else {
+		MYSQL_RES *result = mysql_store_result(&mysqlServer);
+		if (result != NULL) {
+			MYSQL_ROW row;
+			if (row = mysql_fetch_row(result)) {
+				LOG("found in sql");
+				LOG(row[3]);
+				return row[3]; 
+			}
+		}
+	}
+}
+/* for download end ****************************************************/
 
 void handleLogin(std :: string rspHeader, int client, bool login = true, bool rstVCode = false) {
     int dataNumber = 0;
@@ -317,7 +394,7 @@ void handleLogin(std :: string rspHeader, int client, bool login = true, bool rs
 	        LOG("cookie sent.");
 	    }
 	    return;
-	}
+	} 
 	
 }
 
@@ -329,6 +406,8 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 	}
 	
 	std :: string request = "";
+	std :: string cookie = "";
+	std :: string name = "";
 	
 	while (requestHeader[requestPos] != ' ' and requestHeader[requestPos] != '&') {
 		request += requestHeader[requestPos];
@@ -357,6 +436,8 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 	
 	LOG("POST");
 	LOG(request.c_str());
+	
+	/* read type ----------------------------------------------------------*/
 	typePos += 14; // length of "Content-Type: "
 	std :: string type = "";
 	
@@ -372,40 +453,76 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 	LOG(type + "(TYPE)"); 
 	
 	if (type.compare("file") == 0) {
+		/* read size ----------------------------------------------------------*/
 		int sizePos = 0;
+		int dataSize = 0;
 		if ((sizePos = requestHeader.find("dataSize=")) < 0) {
 			ERR("header format error!");
-		} 
-		
-		sizePos += 9; // size of "dataSize="
-		int dataSize = 0;
-		while (ISNUM(requestHeader[sizePos])) {
-			dataSize = 10 * dataSize + requestHeader[sizePos] - '0';
-			sizePos++;
-			
-			if (sizePos > requestHeader.length()) {
-				break;
+		} else {
+			sizePos += 9; // size of "dataSize="
+			while (ISNUM(requestHeader[sizePos])) {
+				dataSize = 10 * dataSize + requestHeader[sizePos] - '0';
+				sizePos++;
+				
+				if (sizePos > requestHeader.length()) {
+					break;
+				}
 			}
 		}
 		
+
 		LOG(std :: to_string(dataSize) + "(SIZE)");
 		
-		char *content = new char[dataSize + 27];
-
-		if (recv(client, content, dataSize, 0) < 0) {
-            ERR("failed to receive file!");
-        } else {
-        	content[dataSize] = 0;
+		/* read cookie ----------------------------------------------------------*/
+		int cookiePos = 0;
+		if ((cookiePos = requestHeader.find("cookie=")) > 0) {
+			cookiePos += 7;
+			while (requestHeader[cookiePos] != '\r') {
+				cookie += requestHeader[cookiePos];
+				cookiePos++;
+				
+				if (cookiePos > requestHeader.length()) break;
+			}
+			
+			LOG((cookie + "(COOKIE)").c_str());
+		} 
+		/* read name ----------------------------------------------------------*/
+		int namePos = 0;
+		if ((namePos = requestHeader.find("name=")) > 0) {
+			LOG("readName");
+			namePos += 5;
+			while (requestHeader[namePos] != '\r') {
+				name += requestHeader[namePos];
+				namePos++;
+				
+				if (namePos > requestHeader.length()) break;
+			}
+			
+			LOG((name + "(NAME)").c_str());
+		} 
+		/* read file ----------------------------------------------------------*/
+		char *content;
+		if (dataSize != 0) {
+			content = new char[dataSize + 27];
+			memset(content, 0, sizeof(content));
+			if (recv(client, content, dataSize, 0) < 0) {
+	            ERR("failed to receive file!");
+	        } else {
+	        	content[dataSize] = 0;
+			}
+			content[dataSize] = 0;
+			std :: string contentTmp = content;
+			
+			if (cookie.length() <= 0) {
+				strcpy(content + dataSize, "lack of end");
+				content[dataSize + 11] = '\n';
+				content[dataSize + 12] = '\\';
+				strcpy(content + dataSize + 13, "end{document}");
+				content[dataSize + 26] = 0;
+			}
+			LOG(content); 
 		}
-		
-		strcpy(content + dataSize, "lack of end");
-		content[dataSize + 11] = '\n';
-		content[dataSize + 12] = '\\';
-		strcpy(content + dataSize + 13, "end{document}");
-		content[dataSize + 26] = 0;
-		
-		LOG(content); 
-		
+
 		
 		if (request.compare("?texToHtml") == 0 or
 			request.compare("?texToPdf") == 0) {
@@ -448,9 +565,14 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 			
 			LOG(responseFile);
 			
+			/* read reasponse file */ 
 			char *fileContent = readFile(responseFile.c_str());
 			char *cssContent = NULL;
+			LOG(fileContent);
+			
 			int fileLength, cssLength;
+			fileLength = readFileLength;
+			
 			if (fileContent == NULL) {
 				fileContent = "Something goes wrong with rendering latex.";
 			} else {
@@ -459,7 +581,6 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 			}
 			
 			std :: string rspHeader = "";
-			fileLength = strlen(fileContent);
 			
 			if (cssContent == NULL) {
 				rspHeader = "dataNumber=1\r\n";
@@ -485,18 +606,17 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 		        LOG("response header sent.");
 		    }
 			
-			char rcvBuff[RSP_PACKAGE + 1];
+			char rcvBuff[RSP_PACKAGEF + 1];
    			memset(rcvBuff, 0, sizeof(rcvBuff));
    			
-			for (int i = 0; i < fileLength; i += RSP_PACKAGE) {
-		    	int sendSize = RSP_PACKAGE;
-		    	if (i + RSP_PACKAGE > fileLength) {
+			for (int i = 0; i < fileLength; i += RSP_PACKAGEF) {
+		    	int sendSize = RSP_PACKAGEF;
+		    	if (i + RSP_PACKAGEF > fileLength) {
 		    		sendSize = fileLength - i;
 				}
 				
-				strncpy(rcvBuff, fileContent + i, sendSize);
+				for (int j = 0; j < sendSize; j++) rcvBuff[j] = *(fileContent + i + j);
 				rcvBuff[sendSize] = 0;
-				LOG(rcvBuff);
 				
 		    	if (send(client, rcvBuff, sendSize, 0) < 0) {
 			        ERR("failed to receive css!");
@@ -506,15 +626,14 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 		
 		    
 		    if (cssContent != NULL) {
-			    for (int i = 0; i < cssLength; i += RSP_PACKAGE) {
-			    	int sendSize = RSP_PACKAGE;
-			    	if (i + RSP_PACKAGE > cssLength) {
+			    for (int i = 0; i < cssLength; i += RSP_PACKAGEF) {
+			    	int sendSize = RSP_PACKAGEF;
+			    	if (i + RSP_PACKAGEF > cssLength) {
 			    		sendSize = cssLength - i;
 					}
 					
 					strncpy(rcvBuff, cssContent + i, sendSize);
 					rcvBuff[sendSize] = 0;
-					LOG(rcvBuff);
 					
 			    	if (send(client, rcvBuff, sendSize, 0) < 0) {
 				        ERR("failed to receive css!");
@@ -531,6 +650,40 @@ void handlePost(std :: string requestHeader, int client, int threadNumber) {
 
 		    chdir("..");
 		    LOG(getcwd(NULL, 0));
+		} else if (request.compare("?uploadTex") == 0) {
+			saveToSql(cookie, name, content);
+		} else if (request.compare("?downloadTex") == 0) {
+			std :: string response = getTex(name, cookie);
+			int resLength = response.length();
+			
+			std :: string downloadHeader = "";
+			downloadHeader += "dataSize=" + std :: to_string(resLength) + "\r\n";
+			LOG(downloadHeader.c_str());
+			
+			while(downloadHeader.length() < RSP_PACKAGE) downloadHeader += ' ';
+			if (send(client, downloadHeader.c_str(), RSP_PACKAGE, 0) < 0) {
+		        ERR("failed to send response header!");
+		    } else {
+		        LOG("response header sent.");
+		    }
+		    
+		    char rcvBuff[RSP_PACKAGEF + 1];
+   			memset(rcvBuff, 0, sizeof(rcvBuff));
+   			
+			for (int i = 0; i < resLength; i += RSP_PACKAGEF) {
+		    	int sendSize = RSP_PACKAGEF;
+		    	if (i + RSP_PACKAGEF > resLength) {
+		    		sendSize = resLength - i;
+				}
+				
+				for (int j = 0; j < sendSize; j++) rcvBuff[j] = response[j];
+				rcvBuff[sendSize] = 0;
+				
+		    	if (send(client, rcvBuff, sendSize, 0) < 0) {
+			        ERR("failed to send sql content!");
+			    }
+			}
+			LOG("sql content sent.");
 		}
 	}
 }

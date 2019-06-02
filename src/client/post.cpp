@@ -108,6 +108,8 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
     html = "";
     css = "";
     int reciveLength;
+    htmlChar = new char[fileSize + 1];
+
     for (int i = 0; i < fileSize; i += RSP_PACKAGE) {
         int receiveSize = RSP_PACKAGE;
         if (i + RSP_PACKAGE > fileSize) {
@@ -119,13 +121,20 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
             return Response("error");
         } else {
             rcvBuff[receiveSize] = 0;
-            html += rcvBuff;
+            for (int j = 0; j < receiveSize; j++) html += rcvBuff[j];
             memset(rcvBuff, 0, sizeof(rcvBuff));
         }
+        Sleep(100);
     }
 
-    int htmlEnd = html.find("</html>");
-    if (htmlEnd > 0) html = html.substr(0, htmlEnd + 7);
+    qDebug() << html.length();
+    qDebug() << fileSize;
+
+    if (html.length() == fileSize) {
+        int htmlEnd = html.find("</html>");
+        if (htmlEnd > 0) html = html.substr(0, htmlEnd + 7);
+    }
+
 
     if (dataNumber == 2) {
         for (int i = 0; i < cssSize; i += RSP_PACKAGE) {
@@ -145,7 +154,7 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
         }
 
         int cssBegin = css.find("start css.sty") - 3;
-        css = css.substr(cssBegin);
+        if (cssBegin > 0) css = css.substr(cssBegin);
 
         int headPos = html.find("<head>");
         if (headPos < 0) return Response(html);
@@ -169,8 +178,9 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
     else return Response(html);
 }
 
-Response postFile(char *addr, int serverPort, char *target,
-                       char *content, bool isFile = true) {
+Response postFile(char *addr, int serverPort, const char *target,
+                  char *content, bool isFile = true,
+                  std :: string pCookie = "", std :: string name = "") {
     SOCKET clientSocket;
     WSADATA wsaData;
     struct sockaddr_in serverAddr;
@@ -233,7 +243,16 @@ Response postFile(char *addr, int serverPort, char *target,
     header += "Accept: */*\r\n";
 
     header += "Content-Type: file\r\n";
-    header += "\r\n";
+
+    if (pCookie.length() > 1) {
+        header += "cookie=";
+        header += pCookie + "\r\n";
+    }
+
+    if (name.length() > 1) {
+        header += "name=";
+        header += name + "\r\n";
+    }
 
     header += "dataSize=";
     header += std :: to_string(fileLength);
@@ -264,7 +283,11 @@ Response postFile(char *addr, int serverPort, char *target,
         ERR("failed to receive response!");
         return Response("error");
     } else if (reciveLength > 0) {
-        return handleResponse(rcvBuff, clientSocket);
+        if (pCookie.length() >= 1) {
+            return Response(rcvBuff);
+        } else {
+            return handleResponse(rcvBuff, clientSocket);
+        }
     }
 
     return Response("error");

@@ -241,7 +241,6 @@ void login::on_loginButton_clicked() {
         QMessageBox::information(NULL, "Wrong", "Wrong account or password.",
                                  QMessageBox::Ok, QMessageBox::Ok);
     } else {
-// Todo: save cookie
         GV::cookie = cookie;
         this->close();
     }

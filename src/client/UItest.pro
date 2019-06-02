@@ -31,18 +31,20 @@ SOURCES += \
     log.cpp \
     postthread.cpp \
     login.cpp \
-    login.cpp
+    login.cpp \
+    savefile.cpp
 
 HEADERS += \
         mainwindow.h \
     postthread.h \
     login.h \
     login.h \
-    gv.h
+    savefile.h
 
 FORMS += \
         mainwindow.ui \
-    login.ui
+    login.ui \
+    savefile.ui
 
 LIBS += -lWs2_32
 
