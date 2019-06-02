@@ -91,14 +91,26 @@ private slots:
 
     void on_loadCloud_triggered();
 
+    void on_multiuser_triggered();
+
+    void downloadCloudSlot();
+
+    void uploadCloudSlot();
+
 private:
     Ui::MainWindow *ui;
     PostThread *postThread;
     QTextCursor textCursor;
     login *loginClient;
     SaveFile *saveFile;
+    QTimer *qtimer;
+
+    void downloadCloud(QString fileName);
+
+    void uploadCloud(QString fileName);
 
     bool isSaved;
+    bool multiUserOn;
 };
 
 #endif // MAINWINDOW_H

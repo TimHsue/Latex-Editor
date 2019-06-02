@@ -110,6 +110,7 @@ p, li { white-space: pre-wrap; }
     <addaction name="openFile"/>
     <addaction name="uploadCloud"/>
     <addaction name="loadCloud"/>
+    <addaction name="multiuser"/>
    </widget>
    <widget class="QMenu" name="menu_3">
     <property name="title">
@@ -168,10 +169,10 @@ p, li { white-space: pre-wrap; }
   </action>
   <action name="login">
    <property name="text">
-    <string>登陆</string>
+    <string>登陆\注册</string>
    </property>
    <property name="toolTip">
-    <string>登陆</string>
+    <string>登陆注册</string>
    </property>
   </action>
   <action name="getFile">
@@ -327,6 +328,14 @@ p, li { white-space: pre-wrap; }
    </property>
    <property name="toolTip">
     <string>从云端加载</string>
+   </property>
+  </action>
+  <action name="multiuser">
+   <property name="text">
+    <string>多人编辑</string>
+   </property>
+   <property name="toolTip">
+    <string>多人编辑</string>
    </property>
   </action>
  </widget>

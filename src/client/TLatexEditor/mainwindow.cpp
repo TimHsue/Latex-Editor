@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QInputDialog>
+#include <QTimer>
 
 #define RQS_PACKAGE 256
 #define RSP_PACKAGE 256
@@ -38,9 +39,23 @@ MainWindow::MainWindow(QWidget *parent) :
     defaultSaveName = "newLatex";
     defaultSaveType = "";
     isSaved = true;
+    multiUserOn = false;
     saveFile = new SaveFile(this, this);
     saveFile->setWindowModality(Qt::ApplicationModal);
+
+    qtimer = new QTimer(this);
+    connect(qtimer, SIGNAL(timeout()), this, SLOT(downloadCloudSlot()));
+    connect(qtimer, SIGNAL(timeout()), this, SLOT(uploadCloudSlot()));
 }
+
+void MainWindow::downloadCloudSlot() {
+    downloadCloud("tmptex970830");
+}
+
+void MainWindow::uploadCloudSlot() {
+    uploadCloud("tmptex970830");
+}
+
 
 MainWindow::~MainWindow() {
     delete ui;
@@ -437,6 +452,18 @@ void MainWindow::on_flushright_triggered() {
     ui->latexEditor->setTextCursor(textCursor);
 }
 
+void MainWindow::uploadCloud(QString fileName) {
+    QString latexText = ui->latexEditor->toPlainText();
+    if (latexText.length() == 0) return;
+    PostThread *uploadThread = new PostThread(this);
+    uploadThread->isDownload = false;
+    uploadThread->isUpload = true;
+    uploadThread->content = latexText;
+    uploadThread->pCookie = QString::fromStdString(GV::cookie);
+    uploadThread->fileName = fileName;
+    uploadThread->start();
+}
+
 void MainWindow::on_uploadCloud_triggered() {
     if (GV::cookie.length() <= 1) {
         QMessageBox::information(NULL, "Error", "You need to login first.",
@@ -454,16 +481,7 @@ void MainWindow::on_uploadCloud_triggered() {
         return;
     }
 
-
-    QString latexText = ui->latexEditor->toPlainText();
-    if (latexText.length() == 0) return;
-    PostThread *uploadThread = new PostThread(this);
-    uploadThread->isDownload = false;
-    uploadThread->isUpload = true;
-    uploadThread->content = latexText;
-    uploadThread->pCookie = QString::fromStdString(GV::cookie);
-    uploadThread->fileName = fileName;
-    uploadThread->start();
+    uploadCloud(fileName);
 }
 
 void MainWindow::uploadResult(QString info) {
@@ -612,6 +630,21 @@ std :: string getSqlContent(char *addr, int serverPort, const char *target,
     return result;
 }
 
+void MainWindow::downloadCloud(QString fileName) {
+    char ip[16];
+    char type[16];
+    strcpy_s(ip, "106.52.251.85");
+    strcpy_s(type, "downloadTex");
+    QByteArray nameBA = fileName.toLatin1();
+
+    std :: string result = getSqlContent(ip, 8888, type,
+                                         GV::cookie, nameBA.data());
+
+    QString text = QString::fromStdString(result);
+    ui->latexEditor->setText(text);
+    isSaved = true;
+}
+
 void MainWindow::on_loadCloud_triggered() {
     if (GV::cookie.length() <= 1) {
         QMessageBox::information(NULL, "Error", "You need to login first.",
@@ -638,16 +671,15 @@ void MainWindow::on_loadCloud_triggered() {
         }
     }
 
-    char ip[16];
-    char type[16];
-    strcpy_s(ip, "106.52.251.85");
-    strcpy_s(type, "downloadTex");
-    QByteArray nameBA = fileName.toLatin1();
+    downloadCloud(fileName);
+}
 
-    std :: string result = getSqlContent(ip, 8888, type,
-                                         GV::cookie, nameBA.data());
-
-    QString text = QString::fromStdString(result);
-    ui->latexEditor->setText(text);
-    isSaved = true;
+void MainWindow::on_multiuser_triggered() {
+    if (multiUserOn == false) {
+        uploadCloud("tmptex970830");
+        qtimer->start(1000);
+    } else {
+        qtimer->stop();
+    }
+    multiUserOn ^= 1;
 }

@@ -124,7 +124,7 @@ Response handleResponse(std :: string rspHeader, SOCKET client) {
             for (int j = 0; j < receiveSize; j++) html += rcvBuff[j];
             memset(rcvBuff, 0, sizeof(rcvBuff));
         }
-        Sleep(100);
+        Sleep(80);
     }
 
     qDebug() << html.length();

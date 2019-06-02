@@ -208,6 +208,7 @@ login::login(QWidget *parent) :
         ui->setupUi(this);
         strcpy_s(ip, "106.52.251.85");
         strcpy_s(type, "texToHtml");
+        this->setWindowTitle("Login & Regist");
     }
 
 login::~login() {
